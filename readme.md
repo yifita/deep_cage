@@ -1,5 +1,5 @@
 # Neural Cages for Detail-Preserving 3D Deformations
-
+[[project page][project-page]][[pdf][arxiv-pdf]][[supplemental][supp-pdf]]
 ## Installation
 ```bash
 git clone --recursive https://github.com/yifita/deep_cage.git
@@ -24,6 +24,8 @@ install Thea https://github.com/sidch/Thea to batch render outputs
 # results will be saved in trained_models/chair_ablation_full/test
 python cage_deformer_3d.py --dataset SHAPENET --full_net --bottleneck_size 256 --n_fold 2 --ckpt trained_models/chair_ablation_full/net_final.pth --target_model data/shapenet_target/**/*.obj  --source_model data/elaborated_chairs/throne_no_base.obj data/elaborated_chairs/Chaise_longue_noir_House_Doctor.ply --subdir fancy_chairs --phase test --is_poly
 ```
+Example: input - target - output
+![chair-example](trained_models/chair_ablation_full/fancy_chairs/renders/montage/Chaise_longue_noir_House_Doctor-92373022868b812fe9aa238b4bc8322e_model.png)
 - deformation transfer
 ```bash
 # download surreal data from 3DCoded
@@ -41,3 +43,7 @@ python optimize_cage.py --dataset SURREAL --loss MSE --nepochs 3000 --data_dir d
 # deformation transfer to a robot
 python optimize_cage.py --ckpt trained_models/rpose_mlp/net_final.pth --nepochs 8000 --mlp --num_point 6890 --phase test --dataset SURREAL --data_dir /home/mnt/points/data/Surreal --model data/fancy_humanoid/robot.obj --subdir robot --source_model data/surreal_template.ply --clap_weight 0.1 --lr 0.0005 --template data/surreal_template_v77.ply
 ```
+
+[project-page]: https://yifita.github.io/publication/deep_cage/
+[arxiv-pdf]: https://arxiv.org/pdf/1912.06395.pdf
+[supp-pdf]: https://yifita.github.io/publication/deep_cage/supplemental.pdf
