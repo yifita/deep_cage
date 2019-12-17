@@ -2,7 +2,7 @@
 
 ## Installation
 ```bash
-git clone --recursive {GIT}
+git clone --recursive https://github.com/yifita/deep_cage.git
 # install dependency
 conda env create --name pytorch-all --file environment.yml
 cd pytorch_points
