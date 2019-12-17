@@ -20,13 +20,13 @@ from pytorch_points.network.model_loss import MeshLaplacianLoss
 import network2 as networks
 from common import loadInitCage, build_dataset, deform_with_MVC, read_trimesh
 from losses import MVCRegularizer
-from option import BaseOptions
+from option import DeformationOptions
 from matplotlib.colors import Normalize
 from matplotlib import cm
 import openmesh as om
 
 
-class MyOptions(BaseOptions):
+class MyOptions(DeformationOptions):
     def initialize(self, parser):
         parser.add_argument(
             "--model", type=str, default="/home/mnt/points/data/MPI-FAUST/training/registrations/tr_reg_010.ply")
@@ -34,8 +34,6 @@ class MyOptions(BaseOptions):
                             help="path to optimized cage")
         parser.add_argument("--opt_lap", action="store_true",
                             help="optimize deformed shape using laplacian")
-        parser.add_argument("--corres_idx", type=str,
-                            help="correspondence txt")
         return super().initialize(parser)
 
     def parse(self):
