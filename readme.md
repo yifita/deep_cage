@@ -14,5 +14,6 @@ pip install pymesh/pymesh2-0.2.1-cp37-cp37m-linux_x86_64.whl
 # install other dependecies
 pip install -r requirements.txt
 
-python cage_deformer_3d.py --dataset SHAPENET --full_net --bottleneck_size 256 --n_fold 2 --ckpt log/cage_deformer_3d-chair_ablation_full/net_final.pth --target_model vanilla_data/shapenet_target/**/*.obj  --source_model vanilla_data/elaborated_chairs/throne_no_base.obj vanilla_data/elaborated_chairs/Chaise_longue_noir_House_Doctor.ply --subdir fancy_chairs --phase test --is_poly
+# results will be saved in trained_models/chair_ablation_full/test
+python cage_deformer_3d.py --dataset SHAPENET --full_net --bottleneck_size 256 --n_fold 2 --ckpt trained_models/chair_ablation_full/net_final.pth --target_model vanilla_data/shapenet_target/**/*.obj  --source_model vanilla_data/elaborated_chairs/throne_no_base.obj vanilla_data/elaborated_chairs/Chaise_longue_noir_House_Doctor.ply --subdir fancy_chairs --phase test --is_poly
 ```
