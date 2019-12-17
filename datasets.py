@@ -151,7 +151,7 @@ class FileListDataset(torch.utils.data.Dataset):
 class FaustDataset(torch.utils.data.Dataset):
     def __init__(self, root_dir="/home/mnt/points/data/MPI-FAUST", phase="train", npoints=6890, max=-1,
                  normalization=True, regular_sampling=False, pair_list=None,
-                 template="./vanilla_data/surreal_template_v77.ply", source="./vanilla_data/surreal_template.ply",
+                 template="./data/surreal_template_v77.ply", source="./data/surreal_template.ply",
                  **kwargs):
         super().__init__()
         self.mesh_data = True
@@ -161,8 +161,8 @@ class FaustDataset(torch.utils.data.Dataset):
         self.mesh_vertex = self.mesh_vertex[:,:3]
         self.mesh_face = torch.from_numpy(self.mesh_face[:,:3].astype(np.int64))
         self.mesh_vertex = torch.from_numpy(self.mesh_vertex)
-        template = template or "./vanilla_data/surreal_template_v77.ply"
-        source = source or "./vanilla_data/surreal_template.ply"
+        template = template or "./data/surreal_template_v77.ply"
+        source = source or "./data/surreal_template.ply"
         _, farea = compute_face_normals_and_areas(self.mesh_vertex.unsqueeze(0), self.mesh_face.unsqueeze(0))
         v_area = scatter_add(farea.view(-1,1).expand(-1,3).contiguous().view(-1), self.mesh_face.view(-1), 0, out_size=(self.mesh_vertex.shape[0],))
         self.prob = (v_area / torch.sum(v_area)).numpy()
@@ -1075,7 +1075,7 @@ class ShapeNetV2(ShapeNetSeg):
 class PairedSurreal(torch.utils.data.Dataset):
     def __init__(self, root_dir, phase="train", npoints=6890, regular_sampling=False, normal=False, data_augmentation_Z_rotation=False,
                  data_augmentation_Z_rotation_range=360, data_augmentation_3D_rotation=False, max=-1,
-                 template="./vanilla_data/surreal_template_v77.ply", source="./vanilla_data/surreal_template.ply"):
+                 template="./data/surreal_template_v77.ply", source="./data/surreal_template.ply"):
         super().__init__()
         self.data_augmentation_Z_rotation = data_augmentation_Z_rotation
         self.data_augmentation_Z_rotation_range = data_augmentation_Z_rotation_range
@@ -1086,8 +1086,8 @@ class PairedSurreal(torch.utils.data.Dataset):
         self.train = self.phase == "train"
         self.regular_sampling = regular_sampling  # sample points uniformly or proportionaly to their adjacent area
         self.npoints = npoints
-        template = template or "./vanilla_data/surreal_template_v77.ply"
-        source = source or "./vanilla_data/surreal_template.ply"
+        template = template or "./data/surreal_template_v77.ply"
+        source = source or "./data/surreal_template.ply"
 
         self.datas = []
         start = time.time()

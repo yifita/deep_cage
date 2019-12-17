@@ -27,7 +27,7 @@ class BaseOptions():
         parser.add_argument("--no-preprocessed", dest="use_preprocessed", action="store_false", help="using preprocessed")
         parser.add_argument("--num_point", type=int, help="number of input points", default=2048)
         parser.add_argument("--regular_sampling", action="store_true", help="sample considering face area")
-        parser.add_argument("--template", type=str, help="cage template", default="vanilla_data/sphere_V42_F80.off")
+        parser.add_argument("--template", type=str, help="cage template", default="data/sphere_V42_F80.off")
         parser.add_argument("--source_model", type=str, nargs="*", help="source model for testing")
         parser.add_argument("--target_model", type=str, nargs="*", help="target model used for testing")
         parser.add_argument("--data_dir", type=str, help="data root", default="/home/mnt/points/data/Coseg_Wang/Coseg_Wang")
