@@ -47,3 +47,15 @@ python optimize_cage.py --ckpt trained_models/rpose_mlp/net_final.pth --nepochs 
 [project-page]: https://yifita.github.io/publication/deep_cage/
 [arxiv-pdf]: https://arxiv.org/pdf/1912.06395.pdf
 [supp-pdf]: https://yifita.github.io/publication/deep_cage/supplemental.pdf
+
+## cite
+```
+@misc{yifan2019neural,
+    title={Neural Cages for Detail-Preserving 3D Deformations},
+    author={Wang Yifan and Noam Aigerman and Vladimir Kim and Siddhartha Chaudhuri and Olga Sorkine-Hornung},
+    year={2019},
+    eprint={1912.06395},
+    archivePrefix={arXiv},
+    primaryClass={cs.GR}
+}
+```
