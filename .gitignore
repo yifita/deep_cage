@@ -1,0 +1,12 @@
+__pycache__
+.vscode
+
+vanilla_data
+test/test
+log
+thiery_vc13_code
+scripts/wlop/build
+scripts/mnist_normals/build
+scripts/
+scripts/*/
+test/*/
