@@ -1,5 +1,5 @@
 # Neural Cages for Detail-Preserving 3D Deformations
-[[project page][project-page]][[pdf][arxiv-pdf]][[supplemental][supp-pdf]]
+[[project page][project-page]][[pdf][pdf]][[supplemental][supp-pdf]]
 ## Installation
 ```bash
 git clone --recursive https://github.com/yifita/deep_cage.git
@@ -20,6 +20,8 @@ install Thea https://github.com/sidch/Thea to batch render outputs
 
 ## Demo
 - deform source shape to target shape
+<p class="callout warning">:exclamation: To test your with your own chair models, please make sure that your data is axis-aligned in the same way as our provided examples. </p>
+
 ```bash
 # results will be saved in trained_models/chair_ablation_full/test
 python cage_deformer_3d.py --dataset SHAPENET --full_net --bottleneck_size 256 --n_fold 2 --ckpt trained_models/chair_ablation_full/net_final.pth --target_model data/shapenet_target/**/*.obj  --source_model data/elaborated_chairs/throne_no_base.obj data/elaborated_chairs/Chaise_longue_noir_House_Doctor.ply --subdir fancy_chairs --phase test --is_poly
@@ -45,17 +47,17 @@ python optimize_cage.py --ckpt trained_models/rpose_mlp/net_final.pth --nepochs 
 ```
 
 [project-page]: https://yifita.github.io/publication/deep_cage/
+[pdf]: https://igl.ethz.ch/projects/neural-cage/06035.pdf
 [arxiv-pdf]: https://arxiv.org/pdf/1912.06395.pdf
-[supp-pdf]: https://yifita.github.io/publication/deep_cage/supplemental.pdf
+[supp-pdf]: https://igl.ethz.ch/projects/neural-cage/06035-supp.pdf
 
 ## cite
 ```
-@misc{yifan2019neural,
-    title={Neural Cages for Detail-Preserving 3D Deformations},
-    author={Wang Yifan and Noam Aigerman and Vladimir Kim and Siddhartha Chaudhuri and Olga Sorkine-Hornung},
-    year={2019},
-    eprint={1912.06395},
-    archivePrefix={arXiv},
-    primaryClass={cs.GR}
+@inproceedings{Yifan:NeuralCage:2020,
+  author={Wang Yifan and Noam Aigerman and Vladimir G. Kim and Siddhartha Chaudhuri and Olga Sorkine-Hornung},
+  title={Neural Cages for Detail-Preserving 3D Deformations},
+  booktitle = {CVPR},
+  year = {2020},
 }
 ```
+
