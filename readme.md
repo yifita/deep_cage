@@ -4,8 +4,8 @@
 ```bash
 git clone --recursive https://github.com/yifita/deep_cage.git
 # install dependency
-conda env create --name pytorch-all --file environment.yml
 cd pytorch_points
+conda env create --name pytorch-all --file environment.yml
 python setup.py develop
 # install pymesh2
 # if this step fails, try to install pymesh from source as instructed here
