@@ -15,6 +15,11 @@ pip install pymesh/pymesh2-0.2.1-cp37-cp37m-linux_x86_64.whl
 # install other dependecies
 pip install -r requirements.txt
 ```
+## Trained model
+Download trained models from https://igl.ethz.ch/projects/neural-cage/trained_models.zip.
+
+Unzip under `trained_models`. You should get several subfolders under `trained_models`, e.g. `trained_models/chair_ablation_full` etc.
+
 ### Optional
 install Thea https://github.com/sidch/Thea to batch render outputs
 
