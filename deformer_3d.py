@@ -16,7 +16,7 @@ from pytorch_points.utils.pytorch_utils import weights_init, check_values, save_
                                                clamp_gradient_norm, linear_loss_weight, tolerating_collate, clamp_gradient
 import os
 import losses
-from datasets import FaustDataset, PairedSurreal
+from datasets import PairedSurreal
 from common import build_dataset, log_outputs, deform_with_MVC, read_trimesh
 import network2 as networks
 

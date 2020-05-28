@@ -6,7 +6,7 @@ import subprocess
 import pymesh
 from multiprocessing.pool import ThreadPool
 from pytorch_points.utils.geometry_utils import read_trimesh, write_trimesh
-from pytorch_points.utils.pc_utils import save_ply, save_ply_property, save_ply_with_face, read_ply_with_face
+from pytorch_points.utils.pc_utils import save_ply, save_ply_property, save_ply_with_face
 from pytorch_points.network.geo_operations import mean_value_coordinates_3D, green_coordinates_3D, compute_face_normals_and_areas
 from glob import glob
 
@@ -254,9 +254,9 @@ def build_dataset(opt):
 def log_outputs(opt, step, all_outputs, all_inputs):
     # Source
     color = all_inputs["source_shape"][:,:,1].cpu().numpy()
-    save_ply_property(all_inputs["source_shape"][0].detach().cpu().numpy(), color[0], os.path.join(opt.log_dir,"step-{:06d}-Sa.ply".format(step)), cmap_name="rainbow")
+    save_ply_property(os.path.join(opt.log_dir,"step-{:06d}-Sa.ply".format(step)), all_inputs["source_shape"][0].detach().cpu().numpy(), color[0], cmap_name="rainbow")
     # Target
-    save_ply_property(all_inputs["target_shape"][0].detach().cpu().numpy(), color[0], os.path.join(opt.log_dir,"step-{:06d}-Sb.ply".format(step)), cmap_name="rainbow")
+    save_ply_property(os.path.join(opt.log_dir,"step-{:06d}-Sb.ply".format(step)), all_inputs["target_shape"][0].detach().cpu().numpy(), color[0], cmap_name="rainbow")
     for batch in range(0, all_outputs["cage"].shape[0], opt.batch_size):
         if batch // opt.batch_size == 0:
             tag = "StoT"
@@ -268,16 +268,17 @@ def log_outputs(opt, step, all_outputs, all_inputs):
             tag = "TtoT"
 
         # deformed and cage
-        save_ply_property(all_outputs["deformed"][batch].detach().cpu().numpy(), color[batch], os.path.join(opt.log_dir,"step-{:06d}-{}-Sab.ply".format(step, tag)), cmap_name="rainbow")
-        save_ply_with_face(
-                    all_outputs["cage"][batch].detach().cpu(), all_outputs["cage_face"][0].detach().cpu(), os.path.join(opt.log_dir, "step-{:06d}-{}-cage1.ply".format(step, tag)), binary=True)
-        save_ply_with_face(
-                    all_outputs["new_cage"][batch].detach().cpu(), all_outputs["cage_face"][0].detach().cpu(), os.path.join(opt.log_dir, "step-{:06d}-{}-cage2.ply".format(step, tag)), binary=True)
+        save_ply_property(os.path.join(opt.log_dir,"step-{:06d}-{}-Sab.ply".format(step, tag)),
+                    all_outputs["deformed"][batch].detach().cpu().numpy(), color[batch], cmap_name="rainbow")
+        write_trimesh(os.path.join(opt.log_dir, "step-{:06d}-{}-cage1.ply".format(step, tag)),
+                    all_outputs["cage"][batch].detach().cpu(), all_outputs["cage_face"][0].detach().cpu(), binary=True)
+        write_trimesh(os.path.join(opt.log_dir, "step-{:06d}-{}-cage2.ply".format(step, tag)),
+                    all_outputs["new_cage"][batch].detach().cpu(), all_outputs["cage_face"][0].detach().cpu(), binary=True)
 
         # if using network2
         if "cage_surface" in all_outputs:
-            save_ply(all_outputs["cage_surface"][batch].detach().cpu().numpy(), os.path.join(opt.log_dir,"step-{:06d}-{}-cage_surface1.ply".format(step, tag)))
-            save_ply(all_outputs["new_cage_surface"][batch].detach().cpu().numpy(), os.path.join(opt.log_dir,"step-{:06d}-{}-cage_surface2.ply".format(step, tag)))
+            save_ply(os.path.join(opt.log_dir,"step-{:06d}-{}-cage_surface1.ply".format(step, tag)), all_outputs["cage_surface"][batch].detach().cpu().numpy())
+            save_ply(os.path.join(opt.log_dir,"step-{:06d}-{}-cage_surface2.ply".format(step, tag)), all_outputs["new_cage_surface"][batch].detach().cpu().numpy())
 
 def remesh(path1):
     """

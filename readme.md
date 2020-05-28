@@ -33,6 +33,7 @@ python cage_deformer_3d.py --dataset SHAPENET --full_net --bottleneck_size 256 -
 ```
 Example: input - target - output
 ![chair-example](trained_models/chair_ablation_full/fancy_chairs/renders/montage/Chaise_longue_noir_House_Doctor-92373022868b812fe9aa238b4bc8322e_model.png)
+
 - deformation transfer
 ```bash
 # download surreal data from 3DCoded
@@ -42,7 +43,7 @@ chmod a+'x' download_dataset.sh
 ./download_dataset.sh
 
 # baseline deform the original training source
-python deformer_3d.py --dataset SURREAL --nepochs 2 --data_dir data/Surreal --batch_size 2 --num_point 6890 --bottleneck_size 1024 --template data/cage_tpose.ply --source_model data/surreal_template_tpose.ply  --ckpt trained_models/tpose_atlas_b1024/net_final.pth --phase test
+python deformer_3d.py --dataset SURREAL --nepochs 2 --data_dir data/Surreal --batch_size 1 --num_point 6890 --bottleneck_size 1024 --template data/cage_tpose.ply --source_model data/surreal_template_tpose.ply  --ckpt trained_models/tpose_atlas_b1024/net_final.pth --phase test
 
 # deformation transfer to a skeleton
 python optimize_cage.py --dataset SURREAL --nepochs 3000 --data_dir data/Surreal --num_point 6890 --bottleneck_size 1024 --clap_weight 0.05 --template data/cage_tpose.ply --model data/fancy_humanoid/Skeleton/skeleton_tpose.obj --subdir skeleton --source_model data/surreal_template_tpose.ply --ckpt trained_model/tpose_atlas_b1024/net_final.pth --lr 0.005 --is_poly
@@ -50,6 +51,42 @@ python optimize_cage.py --dataset SURREAL --nepochs 3000 --data_dir data/Surreal
 # deformation transfer to a robot (with another model, which is trained using resting pose instead of the tpose)
 python optimize_cage.py --ckpt trained_models/rpose_mlp/net_final.pth --nepochs 8000 --mlp --num_point 6890 --phase test --dataset SURREAL --data_dir data/Surreal --model data/fancy_humanoid/robot.obj --subdir robot --source_model data/surreal_template.ply --clap_weight 0.1 --lr 0.0005 --template data/surreal_template_v77.ply
 ```
+
+## Training
+### ShapeNet deformations
+A binary file storing preprocessed training data is provided `data/train_Chair_-1_2500.pkl`. This consists of the chair models from the  PartSegv0 subset of ShapeNetCore.v1 dataset.
+The following command is what we ran to create our results in the paper.
+```python
+python cage_deformer.py --data_cat Chair --dataset SHAPENET --data_dir {ROOT_POINT_DIR} \
+  --batch_size 8 --nepochs 12 --num_point 1024 --bottleneck_size 256 --n_fold 2 --loss CD \
+  --name shapenet_chairs --mvc_weight 0.1 --sym_weight 0.5 --p2f_weight 0.1 --snormal_weight 0.1 --full_net
+```
+#### Data generation
+You can also create your own data from shapenet.
+
+1. Download data from [ShapeNet.org](https://www.shapenet.org/). Make sure that a `synsetoffset2category.txt` file is located in the root directory. If it doesn't, you can copy `data/processed_shapenetseg/synsetoffset2category.txt` to the root directory.
+2. Sample points from ShapeNet using the `scripts/resample_shapenet.py`
+  ```python
+  python resample_shapenet.py {INPUT_DIR} {OUTPUT_DIR}
+  # example
+  python resample_shapenet.py /home/mnt/points/data/ShapeNet/ShapeNetCore.v2/04530566 /home/mnt/points/data/ShapeNet/ShapeNetCore.v2.5000p/
+  ```
+**Alternatively**, you can use the presampled point data provided by Thibault (https://github.com/ThibaultGROUEIX/AtlasNet/blob/master/dataset/download_shapenet_pointclouds.sh).
+
+### Humanoid deformations
+![surreal_deform_test](trained_models/rpose_mlp/deform_test.png)
+Train a deformation only model with a fixed source shape and cage.
+The comman below will use the rest pose source shape and the a handcreated source cage
+One can also use `--template data/surreal_template_v77.ply`, which is a cage created by edge collapsing.
+```
+python deformer_3d.py --dataset SURREAL --nepochs 3 --data_dir data/Surreal --batch_size 4 --warmup_epoch 0.5 \
+--num_point 2048 --bottleneck_size 512 --template data/cage_rpose.obj --source_model data/surreal_template.ply \
+--mvc_weight 1.0 --loss MSE --mlp --name surreal_rpose
+```
+
+For deformation transfer, we use [Thea](https://github.com/sidch/Thea) to mark correspondences. An example of the landmarks is shown below.
+This creates a landmark file such as `data/surreal_template.picked`, which will be used by `optimize_cage.py` to adapt the source cage to a novel target shape.
+![deformation_transfer_corres](trained_models/rpose_mlp/thea_corr_example.png)
 
 [project-page]: https://yifita.github.io/publication/deep_cage/
 [pdf]: https://igl.ethz.ch/projects/neural-cage/06035.pdf

@@ -148,135 +148,6 @@ class FileListDataset(torch.utils.data.Dataset):
             "source_mesh": source_mesh, "source_face": source_face, "target_mesh": target_mesh, "target_face": target_face
         }
 
-class FaustDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir="/home/mnt/points/data/MPI-FAUST", phase="train", npoints=6890, max=-1,
-                 normalization=True, regular_sampling=False, pair_list=None,
-                 template="./data/surreal_template_v77.ply", source="./data/surreal_template.ply",
-                 **kwargs):
-        super().__init__()
-        self.mesh_data = True
-        self.npoints = npoints
-        self.regular_sampling = regular_sampling
-        self.mesh_vertex, self.mesh_face = read_trimesh(source)
-        self.mesh_vertex = self.mesh_vertex[:,:3]
-        self.mesh_face = torch.from_numpy(self.mesh_face[:,:3].astype(np.int64))
-        self.mesh_vertex = torch.from_numpy(self.mesh_vertex)
-        template = template or "./data/surreal_template_v77.ply"
-        source = source or "./data/surreal_template.ply"
-        _, farea = compute_face_normals_and_areas(self.mesh_vertex.unsqueeze(0), self.mesh_face.unsqueeze(0))
-        v_area = scatter_add(farea.view(-1,1).expand(-1,3).contiguous().view(-1), self.mesh_face.view(-1), 0, out_size=(self.mesh_vertex.shape[0],))
-        self.prob = (v_area / torch.sum(v_area)).numpy()
-
-        self.cage_vertex, self.cage_face = read_trimesh(template)
-        self.cage_vertex = self.cage_vertex[:,:3]+0.05*self.cage_vertex[:,3:6]
-        self.cage_face = torch.from_numpy(self.cage_face[:,:3].astype(np.int64))
-        self.cage_vertex = torch.from_numpy(self.cage_vertex)
-
-        if normalization:
-            self.mesh_vertex, center, scale = pc_utils.normalize_to_box(self.mesh_vertex)
-            self.cage_vertex = (self.cage_vertex - center)/scale
-        else:
-            self.mesh_vertex, center, scale = pc_utils.center_bounding_box(self.mesh_vertex)
-            self.cage_vertex = (self.cage_vertex - center)
-
-        if phase=="train":
-            self.source_files = glob(os.path.join(root_dir, "training", "registrations", "*[!8].ply"))  # the 8th pose has global rotation
-            self.target_files = self.source_files[:]
-            np.random.shuffle(self.target_files)
-        else:
-            self.source_files, self.target_files = np.loadtxt(os.path.join(root_dir,"test", "challenge_pairs", "inter_challenge.txt"),
-                unpack=True, dtype=str, delimiter="_")
-            self.source_files = [os.path.join(root_dir, "test", "scans", "test_scan_{}.ply".format(f)) for f in self.source_files]
-            self.target_files = [os.path.join(root_dir, "test", "scans", "test_scan_{}.ply".format(f)) for f in self.target_files]
-
-        if max > 0:
-            self.source_files = self.source_files[:max]
-            self.target_files = self.target_files[:max]
-        assert(len(self.source_files)>0 and len(self.source_files)>0)
-        self.isTrain = phase == "train"
-        self.normalization = normalization
-
-    @staticmethod
-    def normalize(shape):
-        shape = pc_utils.normalize_to_box(shape)[0]
-        return shape
-
-    def __getitem__(self, idx):
-        TARGET_IDX = idx
-        INPUT_IDX = idx
-        if self.isTrain:
-            INPUT_IDX = np.random.randint(0, self.__len__())
-
-        source_file = self.source_files[INPUT_IDX]
-        target_file = self.target_files[TARGET_IDX]
-
-        # source
-        mesh_source = Mesh(source_file)
-        # target
-        mesh_target = Mesh(target_file)
-
-        if self.normalization:
-            V, _, _ = pc_utils.normalize_to_box(mesh_source.vs)
-            mesh_source.vs = V
-            V, _, _ = pc_utils.normalize_to_box(mesh_target.vs)
-            mesh_target.vs = V
-        else:
-            V, _, _ = pc_utils.center_bounding_box(mesh_source.vs)
-            mesh_source.vs = V
-            V, _, _ = pc_utils.center_bounding_box(mesh_target.vs)
-            mesh_target.vs = V
-
-        # sample poitns
-        if self.npoints != 6890:
-            if self.regular_sampling:
-                random_sample = np.random.choice(6890, size=self.npoints, p=self.prob)
-            else:
-                random_sample = np.random.choice(6890, size=self.npoints, replace=False)
-
-            target_points = mesh_target.vs[random_sample]
-            source_points = mesh_source.vs[random_sample]
-
-            return (mesh_source, os.path.basename(source_file),
-                    mesh_target, os.path.basename(target_file),
-                    source_points,
-                    target_points,
-                    torch.from_numpy(random_sample.astype(np.int64)),
-                    )
-
-
-        return mesh_source, os.path.basename(source_file)[:-4], mesh_target, os.path.basename(target_file)[:-4]
-
-
-    def __len__(self):
-        return len(self.target_files)
-
-    @staticmethod
-    def uncollate(batch_data):
-        source_mesh, source_filename, target_mesh, target_filename = batch_data[:4]
-        source_shape = source_mesh['vs'].cuda().detach()
-        source_normals = source_mesh['vn'].cuda().detach()
-        target_face = target_mesh['fs'].cuda().detach()
-
-        target_shape = target_mesh['vs'].cuda().detach()
-        target_normals = target_mesh['vn'].cuda().detach()
-        source_face = source_mesh['fs'].cuda().detach()
-
-        return_d = {"source_shape": source_shape, "source_label": None, "source_file": source_filename, "source_normals": source_normals,
-                    "target_shape": target_shape, "target_label": None, "target_file": target_filename, "target_normals": target_normals,
-                    "source_mesh":  source_shape, "source_face":  source_face,
-                    "target_mesh":  target_shape, "target_face": target_face }
-
-        if len(batch_data) == 7:
-            return_d["source_shape"] = batch_data[4].cuda().detach()
-            return_d["target_shape"] = batch_data[5].cuda().detach()
-            return_d["sample_idx"] = batch_data[6].cuda().detach()
-            return return_d
-        else:
-            return return_d
-
-    @staticmethod
-    def render_result(shape_dir, **kwargs):
-        renderMeshes(shape_dir, up=(0,1,0), forward=(0.2,0,-1), pos=(-1.2, 6), **kwargs)
 
 class CoSegDataset(torch.utils.data.Dataset):
     def __init__(self, root_dir="/home/mnt/points/data/Coseg_Wang/Coseg_Wang/", use_init_cage=False, cat="Vase300", phase="train", max=-1):
@@ -463,11 +334,6 @@ class ShapeNetSeg(torch.utils.data.Dataset):
         self.dataset_string_args = str(phase) + "_" + \
                                    str(class_choice) + \
                                    "_" + str(num_samples) + \
-                                   "_" + str(normalization) + \
-                                   "_" + str(knn) + \
-                                   "_" + str(num_neighbors) + \
-                                   "_" + str(shuffle) + \
-                                   "_" + str(normal) + \
                                    "_" + str(2500)
         self.mesh_dir = mesh_dir
         self.path_dataset = os.path.join("./data/processed_shapenetseg", self.dataset_string_args)
@@ -531,7 +397,6 @@ class ShapeNetSeg(torch.utils.data.Dataset):
                 self.datas += [(None, self.numbercat2namecat[source.split("/")[0]], os.path.join(self.root, source)) for _, source in self.source_target_pairs]
                 self.datapath = self.source_target_pairs
 
-        len(self)
         if not use_fixed_pairs or len(self.source_target_pairs)==0:
             if self.phase == "train":
                 with open(os.path.join(os.path.join(self.root, "train_test_split"), 'shuffled_train_file_list.json')) as f:
@@ -856,12 +721,7 @@ class ShapeNetV2(ShapeNetSeg):
         self.dataset_string_args = str(phase) + "_" + \
                                    str(class_choice) + \
                                    "_" + str(num_samples) + \
-                                   "_" + str(normalization) + \
-                                   "_" + str(knn) + \
-                                   "_" + str(num_neighbors) + \
-                                   "_" + str(normal) + \
-                                   "_" + str(5000) + \
-                                   "_" + str(sample)
+                                   "_" + str(5000)
         self.path_dataset = os.path.join("./data/processed_shapenetv2", self.dataset_string_args)
         os.makedirs(os.path.dirname(self.path_dataset), exist_ok=True)
         self.shuffle = shuffle

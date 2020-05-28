@@ -67,7 +67,7 @@ class BaseOptions():
         parser.add_argument("--delta", type=float, help="weight controlling scaled reverse chamfer distance", default=0)
         # training setup
         parser.add_argument("--nepochs", type=int, help="total number of epochs", default=50)
-        parser.add_argument("--warmup_epochs", type=float, help="train deformer only before update cage", default=10)
+        parser.add_argument("--warmup_epochs", type=float, help="train deformer only before update cage", default=0.5)
         parser.add_argument("--phase", type=str, choices=["test", "train", "svr_test"], default="train")
         parser.add_argument("--ckpt", type=str, help="test model")
         parser.add_argument("--epoch", type=int, help="resume training from this epoch")

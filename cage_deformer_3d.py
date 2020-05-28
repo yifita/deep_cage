@@ -18,7 +18,6 @@ from pytorch_points.utils.pytorch_utils import weights_init, check_values, save_
     clamp_gradient_norm, linear_loss_weight, tolerating_collate, clamp_gradient, fix_network_parameters
 import losses
 import networks
-from datasets import FaustDataset, CoSegDataset, ShapeNetSeg
 from common import loadInitCage, build_dataset, crisscross_input, log_outputs, deform_with_MVC
 
 
