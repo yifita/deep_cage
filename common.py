@@ -6,7 +6,7 @@ import subprocess
 import pymesh
 from multiprocessing.pool import ThreadPool
 from pytorch_points.utils.geometry_utils import read_trimesh, write_trimesh
-from pytorch_points.utils.pc_utils import save_ply, save_ply_property, save_ply_with_face
+from pytorch_points.utils.pc_utils import save_ply, save_ply_property
 from pytorch_points.network.geo_operations import mean_value_coordinates_3D, green_coordinates_3D, compute_face_normals_and_areas
 from glob import glob
 
