@@ -24,6 +24,7 @@ from option import DeformationOptions
 from matplotlib.colors import Normalize
 from matplotlib import cm
 import openmesh as om
+import pandas as pd
 
 
 class MyOptions(DeformationOptions):
@@ -87,6 +88,12 @@ def optimize(opt):
         target_shape[:, :3].astype(np.float32)).cuda()
     target_shape.unsqueeze_(0)
 
+    target_faces_arr = target_mesh.face_vertex_indices()
+    target_faces = target_faces_arr.copy()
+    target_faces = torch.from_numpy(
+        target_faces[:, :3].astype(np.int64)).cuda()
+    target_faces.unsqueeze_(0)
+
     states = torch.load(opt.ckpt)
     if "states" in states:
         states = states["states"]
@@ -99,7 +106,6 @@ def optimize(opt):
         new_label_path = opt.model.replace(os.path.splitext(opt.model)[1], ".picked")
         orig_label_path = opt.source_model.replace(os.path.splitext(opt.source_model)[1], ".picked")
         logger.info("Loading picked labels {} and {}".format(orig_label_path, new_label_path))
-        import pandas as pd
         new_label = pd.read_csv(new_label_path, delimiter=" ",skiprows=1, header=None)
         orig_label = pd.read_csv(orig_label_path, delimiter=" ",skiprows=1, header=None)
         orig_label_name = orig_label.iloc[:,5]
@@ -153,40 +159,56 @@ def optimize(opt):
         #     traceback.print_exc(file=sys.stdout)
 
         # source_points[0] = center_bounding_box(source_points[0])[0]
-    elif not os.path.isfile(opt.model.replace(os.path.splitext(opt.model)[1], ".picked")) and os.path.isfile(opt.source_model.replace(os.path.splitext(opt.source_model)[1], ".picked")):
-        logger.info("Assuming Faust model")
+    elif not os.path.isfile(opt.model.replace(os.path.splitext(opt.model)[1], ".picked")) and \
+            os.path.isfile(opt.source_model.replace(os.path.splitext(opt.source_model)[1], ".picked")):
+        logger.info("Could not find {}. Assuming SMPL model".format(opt.model.replace(os.path.splitext(opt.model)[1], ".picked")))
+        source_shape, source_faces = read_trimesh(opt.source_model)
+        assert(source_faces.shape[0] == target_faces.shape[1]), \
+            "opt.model must be a SMPL model with {} faces and {} vertices. Otherwise a correspondence file {} must be present.".format(
+                source_faces.shape[0], source_shape.shape[0], opt.model.replace(os.path.splitext(opt.model)[1], ".picked"))
+        # align faces not vertices
         orig_label_path = opt.source_model.replace(os.path.splitext(opt.source_model)[1], ".picked")
         logger.info("Loading picked labels {}".format(orig_label_path))
-        import pandas as pd
         orig_label = pd.read_csv(orig_label_path, delimiter=" ",skiprows=1, header=None)
-        orig_label_name = orig_label.iloc[:,5]
-        source_shape, _ = read_trimesh(opt.source_model)
-        source_shape = torch.from_numpy(source_shape[None, :,:3]).cuda().float()
-        if orig_label.shape[1] == 10:
-            idx = torch.from_numpy(orig_label.iloc[:,9].to_numpy()).long()
-            source_points = source_shape[:,idx,:]
-            target_points = target_shape[:,idx,:]
-        else:
-            source_points = torch.from_numpy(orig_label.iloc[:,6:9].to_numpy().astype(np.float32))
-            source_points = source_points.unsqueeze(0).cuda()
-            # find the closest point on the original meshes
-            source_points, idx, _ = faiss_knn(1, source_points, source_shape, NCHW=False)
-            source_points = source_points.squeeze(2) # B,N,3
-            idx = idx.squeeze(-1)
-            target_points = target_shape[:,idx,:]
+        source_shape = torch.from_numpy(source_shape[None, :, :3]).cuda().float()
+        source_faces = torch.from_numpy(source_faces[None, :, :3]).cuda().long()
+        idx = torch.from_numpy(orig_label.iloc[:,1].to_numpy()).long()
+        source_points = torch.gather(source_shape.unsqueeze(1).expand(-1, idx.numel(), -1, -1), 2, source_faces[:, idx, :, None].expand(-1, -1, -1, 3))
+        source_points = source_points.mean(dim=-2)
+        target_points = torch.gather(target_shape.unsqueeze(1).expand(-1, idx.numel(), -1, -1), 2, target_faces[:, idx, :, None].expand(-1, -1, -1, 3))
+        target_points = target_points.mean(dim=-2)
 
         _, source_center, _ = center_bounding_box(source_shape[0])
         source_points -= source_center
-    elif opt.corres_idx is None and target_shape.shape[1] == shape_v.shape[1]:
-        logger.info("No correspondence provided, assuming registered Faust models")
-        # corresp_idx = torch.randint(0, shape_f.shape[1], (100,)).cuda()
-        corresp_v = torch.unique(torch.randint(0, shape_v.shape[1], (4800,))).cuda()
-        target_points = torch.index_select(target_shape, 1, corresp_v)
-        source_points = torch.index_select(shape_v, 1, corresp_v)
+    elif not os.path.isfile(opt.model.replace(os.path.splitext(opt.model)[1], ".picked")):
+        logger.info("Could not find {}. Assuming SMPL model".format(opt.model.replace(os.path.splitext(opt.model)[1], ".picked")))
+        source_shape, source_faces = read_trimesh(opt.source_model)
+        assert(source_faces.shape[0] == target_faces.shape[1]), \
+            "opt.model must be a SMPL model with {} faces and {} vertices. Otherwise a correspondence file {} must be present.".format(
+                source_faces.shape[0], source_shape.shape[0], opt.model.replace(os.path.splitext(opt.model)[1], ".picked"))
+        source_shape, source_faces = read_trimesh(opt.source_model)
+
+        _, source_center, _ = center_bounding_box(source_shape[0])
+        source_points -= source_center
+
+        source_shape = torch.from_numpy(source_shape[None, :, :3]).cuda().float()
+        source_faces = torch.from_numpy(source_faces[None, :, :3]).cuda().long()
+        # select a subset of faces, otherwise optimization is too slow
+        idx = torch.from_numpy(np.random.permutation(2048)).cuda().long()
+        source_points = torch.gather(source_shape.unsqueeze(1).expand(-1, source_faces.shape[1], -1, -1), 2, source_faces[:, idx,:, None].expand(-1, -1, -1, 3))
+        source_points = source_points.mean(dim=-2)
+        target_points = torch.gather(target_shape.unsqueeze(1).expand(-1, source_faces.shape[1], -1, -1), 2, target_faces[:,idx,: None].expand(-1, -1, -1, 3))
+        target_points = target_points.mean(dim=-2)
+
+
+        target_points = target_points[:, idx]
+        source_points = source_points[:, idx]
+
 
     target_shape[0], target_center, target_scale = center_bounding_box(target_shape[0])
     _, _, source_scale = center_bounding_box(shape_v[0])
-    target_scale_factor = (source_scale/target_scale)[1]
+    # scale according y axis (body height)
+    target_scale_factor = (source_scale/target_scale)[0,1]
     target_shape *= target_scale_factor
     target_points -= target_center
     target_points = (target_points*target_scale_factor).detach()
@@ -227,22 +249,16 @@ def optimize(opt):
             target_points, cage_v, cage_f, verbose=False)
         loss_mvc = torch.mean((weights-weights_ref)**2)
         # reg = torch.sum((cage_init-cage_v)**2, dim=-1)*1e-4
-        reg = 0
+        reg = torch.tensor(0.0).cuda()
         if opt.clap_weight > 0:
             reg = lap_loss(cage_init, cage_v, face=cage_f)*opt.clap_weight
             reg = reg.mean()
         if opt.mvc_weight > 0:
             reg += mvc_reg_loss(weights)*opt.mvc_weight
 
-        # weight regularizer with the shape difference
-        # dist = torch.sum((source_points - target_points)**2, dim=-1)
-        # weights = torch.exp(-dist)
-        # reg = reg*weights*0.1
-
         loss = loss_mvc + reg
         if (t+1) % 50 == 0:
-            print("t {}/{} mvc_loss: {} reg: {}".format(t,
-                                                        opt.nepochs, loss_mvc.item(), reg.item()))
+            print("t {}/{} mvc_loss: {} reg: {}".format(t, opt.nepochs, loss_mvc.item(), reg.item()))
 
         if loss_mvc.item() < 5e-6:
             break
@@ -315,6 +331,7 @@ def test_all(opt, new_cage_shape):
     net = networks.FixedSourceDeformer(opt, 3, opt.num_point, bottleneck_size=opt.bottleneck_size,
                                        template_vertices=states["template_vertices"], template_faces=states["template_faces"].cuda(),
                                        source_vertices=states["source_vertices"], source_faces=states["source_faces"]).cuda()
+    print(net)
     load_network(net, states)
 
     source_points = torch.from_numpy(
@@ -346,20 +363,8 @@ def test_all(opt, new_cage_shape):
                 source_mesh_arr[:] = deformed[0].cpu().detach().numpy()
                 om.write_mesh(os.path.join(
                     opt.log_dir, opt.subdir, "template-{}-Sab.obj".format(t_filename)), source_mesh)
-                # if data["target_face"] is not None and data["target_mesh"] is not None:
-                # pymesh.save_mesh_raw(os.path.join(opt.log_dir, opt.subdir, "template-{}-Sa.ply".format(t_filename)),
-                #             source_mesh[0].detach().cpu(), source_face[b].detach().cpu())
                 pymesh.save_mesh_raw(os.path.join(opt.log_dir, opt.subdir, "template-{}-Sb.ply".format(t_filename)),
                                      data["target_mesh"][b].detach().cpu(), data["target_face"][b].detach().cpu())
-                # pymesh.save_mesh_raw(os.path.join(opt.log_dir, opt.subdir, "template-{}-Sab.ply".format(t_filename)),
-                #             deformed[b].detach().cpu(), source_face[b].detach().cpu())
-
-                # else:
-                #     save_ply(source_mesh[0].detach().cpu(), os.path.join(opt.log_dir, opt.subdir,"template-{}-Sa.ply".format(t_filename)))
-                #     save_ply(target_shape[b].detach().cpu(), os.path.join(opt.log_dir, opt.subdir,"template-{}-Sb.ply".format(t_filename)),
-                #                 normals=data["target_normals"][b].detach().cpu())
-                #     save_ply(deformed[b].detach().cpu(), os.path.join(opt.log_dir, opt.subdir,"template-{}-Sab.ply".format(t_filename)),
-                #                 normals=data["target_normals"][b].detach().cpu())
 
                 pymesh.save_mesh_raw(
                     os.path.join(opt.log_dir, opt.subdir, "template-{}-cage1.ply".format(t_filename)),
@@ -369,68 +374,10 @@ def test_all(opt, new_cage_shape):
                     os.path.join(opt.log_dir, opt.subdir, "template-{}-cage2.ply".format(t_filename)),
                     outputs["new_cage"][b].detach().cpu(), outputs["cage_face"][b].detach().cpu(),
                                    )
-
-            # if opt.opt_lap and deformed.shape[1] == source_mesh.shape[1]:
-            #     deformed = optimize_lap(opt, source_mesh, deformed, source_face)
-            #     for b in range(deformed.shape[0]):
-            #         pymesh.save_mesh_raw(os.path.join(opt.log_dir, opt.subdir, "template-{}-Sab-optlap.ply".format(t_filename)),
-            #                                 deformed[b].detach().cpu(), source_face[b].detach().cpu())
-
             if i % 20 == 0:
                 logger.success("[{}/{}] Done".format(i, len(dataloader)))
 
     dataset.render_result(os.path.join(opt.log_dir, opt.subdir))
-
-
-def optimize_lap(opt, source_shape, deformed_shape, face):
-    """
-    source_shape (B,N,3)
-    deformed_shape (B,N,3)
-    face         (B,F,3)
-    """
-    B = deformed_shape.shape[0]
-    if opt.corres_idx is None:
-        n_selected = int(source_shape.shape[1] * 0.6)
-        corresp_v = torch.unique(torch.randint(
-            0, source_shape.shape[1], (n_selected, ))).view(1, -1, 1).cuda()
-    else:
-        corresp_idx = torch.from_numpy(np.loadtxt(
-            opt.corres_idx, delimiter=",", dtype=np.int64)).cuda()
-        _, corresp_idx_2 = torch.unbind(corresp_idx, dim=1)
-        corresp_v = torch.unique(torch.gather(
-            face, 1, corresp_idx_2.view(1, -1, 1).expand(-1, -1, 3))).view(1, -1, 1)
-
-    fixed_points = torch.gather(
-        deformed_shape, 1, corresp_v.expand(-1, -1, 3)).detach()
-
-    deformed_shape = deformed_shape.detach()
-    deformed_shape.requires_grad_(True)
-    source_shape = source_shape.detach()
-    optimizer = torch.optim.Adam([deformed_shape], lr=0.0005, betas=(0.1, 0.1))
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, factor=0.5, min_lr=1e-6, verbose=True, patience=25)
-    lap_loss = MeshLaplacianLoss(torch.nn.MSELoss(reduction="none"), use_cot=True,
-                                 use_norm=True, consistent_topology=True, precompute_L=True)
-
-    for t in range(2000):
-        lap_loss_value = torch.mean(
-            lap_loss(source_shape, deformed_shape, face=face).view(B, -1))
-        fixed_points_new = torch.gather(
-            deformed_shape, 1, corresp_v.expand(-1, -1, 3))
-        reg_value = torch.mean(
-            torch.sum((fixed_points - fixed_points_new)**2, dim=-1))
-        loss = lap_loss_value + reg_value
-        loss.backward()
-        if (t+1) % 50 == 0:
-            print("t {}/{} lap: {} reg: {}".format(t, 2000,
-                                                   lap_loss_value.item(), reg_value.item()))
-        if loss < 1e-8:
-            logger.success("Optimization converged!")
-            break
-        optimizer.step()
-        scheduler.step(loss.item())
-
-    return deformed_shape
 
 
 if __name__ == "__main__":
