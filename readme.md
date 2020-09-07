@@ -24,6 +24,10 @@ Unzip under `trained_models`. You should get several subfolders under `trained_m
 install Thea https://github.com/sidch/Thea to batch render outputs
 
 ## Demo
+- download shapenet data
+```
+wget https://igl.ethz.ch/projects/neural-cage/processed_shapenetseg.zip
+```
 - deform source shape to target shape
 <p class="callout warning">:exclamation: To test your with your own chair models, please make sure that your data is axis-aligned in the same way as our provided examples. </p>
 
